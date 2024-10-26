@@ -19,6 +19,12 @@ class KBanditEnv(gym.Env):
             low=0.0, high=0.0, shape=(1,), dtype=np.float32
         )
 
+    def _get_info(self):
+        return {"q_star": self.true_q_values}
+
+    def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
+        super().reset(seed=seed)
+
         true_q_values = []
         if self.stationnary:
             for i in range(self.k):
@@ -32,11 +38,6 @@ class KBanditEnv(gym.Env):
 
         self.true_q_values = true_q_values
 
-    def _get_info(self):
-        return {"q_star": self.true_q_values}
-
-    def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
-        super().reset(seed=seed)
         # Return a fixed observation since it's non-associative
         return np.array([0.0], dtype=np.float32), self._get_info()
 

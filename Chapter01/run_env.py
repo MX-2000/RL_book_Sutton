@@ -1,13 +1,16 @@
 import gymnasium
 import envs
 import numpy as np
+import matplotlib.pyplot as plt
 
 
-def run_simple_bandit(steps=100, epsilon=0.1):
+def run_bandit(
+    steps=100, epsilon=0.1, stationnary=True, k=10, method="sample average", alpha=0.1
+):
 
-    arms_nb = 10
-    env = gymnasium.make("KArmedBandit-v0", k=arms_nb, stationnary=True)
-    _, info = env.reset()
+    arms_nb = k
+    env = gymnasium.make("KArmedBandit-v0", k=arms_nb, stationnary=stationnary)
+    _, info = env.reset(seed=6)
 
     q_estimates = [0 for i in range(arms_nb)]
     action_count = [0 for i in range(arms_nb)]
@@ -26,9 +29,17 @@ def run_simple_bandit(steps=100, epsilon=0.1):
 
         _, reward, _, _, info = env.step(action)
         action_count[action] += 1
-        q_estimates[action] = q_estimates[action] + (1 / action_count[action]) * (
-            reward - q_estimates[action]
-        )
+
+        if method == "sample average":
+
+            q_estimates[action] = q_estimates[action] + (1 / action_count[action]) * (
+                reward - q_estimates[action]
+            )
+        else:
+            q_estimates[action] = q_estimates[action] + alpha * (
+                reward - q_estimates[action]
+            )
+
         rewards.append(reward)
         optimal_actions.append(optimal)
 
@@ -46,6 +57,50 @@ def get_metrics(rewards, optimal_actions):
 
 
 if __name__ == "__main__":
-    rewards, optimal_actions = run_simple_bandit(steps=1000, epsilon=0.1)
-    rewards, optimal_actions = get_metrics(rewards, optimal_actions)
-    print(rewards[-1], optimal_actions[-1])
+    STEPS = 10_000
+    rewards, optimal_actions = run_bandit(steps=STEPS, epsilon=0.1, stationnary=False)
+    rewards1, optimal_actions1 = get_metrics(rewards, optimal_actions)
+    # print(f"Epsilon 0.1: {rewards1[-1]}, {optimal_actions1[-1]}")
+
+    rewards, optimal_actions = run_bandit(
+        steps=STEPS, epsilon=0.1, stationnary=False, method="constant", alpha=0.1
+    )
+    rewards2, optimal_actions2 = get_metrics(rewards, optimal_actions)
+    # print(f"Epsilon 0.01: {rewards2[-1]}, {optimal_actions2[-1]}")
+
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10))
+
+    ax1.plot(
+        list(range(STEPS)), rewards1, color="blue", label="method = sample average"
+    )
+    ax1.plot(
+        list(range(STEPS)), rewards2, color="red", label="method = constant stepSize"
+    )
+    # Adding labels and title
+    ax1.set_xlabel("Steps")
+    ax1.set_ylabel("Average Reward")
+    ax1.legend()  # Show the legend to distinguish between the lines
+
+    ax2.plot(
+        list(range(STEPS)),
+        optimal_actions1,
+        color="blue",
+        label="method = sample average",
+    )
+    ax2.plot(
+        list(range(STEPS)),
+        optimal_actions2,
+        color="red",
+        label="method = constant stepSize",
+    )
+    # Adding labels and title
+    ax2.set_xlabel("Steps")
+    ax2.set_ylabel("%Optimal action")
+    ax2.legend()  # Show the legend to distinguish between the lines
+
+    plt.tight_layout()
+    # Display the plot
+
+    plt.savefig("Ex2.5_nonstationnary.png", format="png", dpi=300)
+
+    plt.show()
