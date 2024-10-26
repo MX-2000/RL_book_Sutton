@@ -19,21 +19,21 @@ class KBanditEnv(gym.Env):
             low=0.0, high=0.0, shape=(1,), dtype=np.float32
         )
 
-        true_q_values = {}
+        true_q_values = []
         if self.stationnary:
-            for i in range(k):
+            for i in range(self.k):
 
                 # We generate the true value according to normal distribution with mean 0 and unit variance
                 true_q = self.np_random.normal(loc=0, scale=1)
-                true_q_values[i] = true_q
+                true_q_values.append(true_q)
         else:
             START_Q = 0
-            true_q_values = {i: START_Q for i in range(self.k)}
+            true_q_values = [START_Q for i in range(self.k)]
 
         self.true_q_values = true_q_values
 
     def _get_info(self):
-        return self.true_q_values
+        return {"q_star": self.true_q_values}
 
     def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
         super().reset(seed=seed)
