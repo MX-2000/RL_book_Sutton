@@ -5,14 +5,20 @@ import matplotlib.pyplot as plt
 
 
 def run_bandit(
-    steps=100, epsilon=0.1, stationnary=True, k=10, method="sample average", alpha=0.1
+    steps=100,
+    epsilon=0.1,
+    stationnary=True,
+    k=10,
+    method="sample average",
+    alpha=0.1,
+    initial_estimates=0,
 ):
 
     arms_nb = k
     env = gymnasium.make("KArmedBandit-v0", k=arms_nb, stationnary=stationnary)
     _, info = env.reset(seed=6)
 
-    q_estimates = [0 for i in range(arms_nb)]
+    q_estimates = [initial_estimates for i in range(arms_nb)]
     action_count = [0 for i in range(arms_nb)]
 
     rewards = []
@@ -57,25 +63,33 @@ def get_metrics(rewards, optimal_actions):
 
 
 if __name__ == "__main__":
-    STEPS = 10_000
-    rewards, optimal_actions = run_bandit(steps=STEPS, epsilon=0.1, stationnary=False)
+    STEPS = 25_000
+    rewards, optimal_actions = run_bandit(
+        steps=STEPS,
+        epsilon=0.1,
+        stationnary=False,
+        method="constant",
+        alpha=0.1,
+        initial_estimates=0,
+    )
     rewards1, optimal_actions1 = get_metrics(rewards, optimal_actions)
     # print(f"Epsilon 0.1: {rewards1[-1]}, {optimal_actions1[-1]}")
 
     rewards, optimal_actions = run_bandit(
-        steps=STEPS, epsilon=0.1, stationnary=False, method="constant", alpha=0.1
+        steps=STEPS,
+        epsilon=0.1,
+        stationnary=False,
+        method="constant",
+        alpha=0.1,
+        initial_estimates=5,
     )
     rewards2, optimal_actions2 = get_metrics(rewards, optimal_actions)
     # print(f"Epsilon 0.01: {rewards2[-1]}, {optimal_actions2[-1]}")
 
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10))
 
-    ax1.plot(
-        list(range(STEPS)), rewards1, color="blue", label="method = sample average"
-    )
-    ax1.plot(
-        list(range(STEPS)), rewards2, color="red", label="method = constant stepSize"
-    )
+    ax1.plot(list(range(STEPS)), rewards1, color="blue", label="Initial Q = 0")
+    ax1.plot(list(range(STEPS)), rewards2, color="red", label="Initial Q = +5")
     # Adding labels and title
     ax1.set_xlabel("Steps")
     ax1.set_ylabel("Average Reward")
@@ -85,13 +99,13 @@ if __name__ == "__main__":
         list(range(STEPS)),
         optimal_actions1,
         color="blue",
-        label="method = sample average",
+        label="Initial Q = 0",
     )
     ax2.plot(
         list(range(STEPS)),
         optimal_actions2,
         color="red",
-        label="method = constant stepSize",
+        label="Initial Q = +5",
     )
     # Adding labels and title
     ax2.set_xlabel("Steps")
@@ -101,6 +115,6 @@ if __name__ == "__main__":
     plt.tight_layout()
     # Display the plot
 
-    plt.savefig("Ex2.5_nonstationnary.png", format="png", dpi=300)
+    plt.savefig("Diff_init_Q_values_nonstationnary.png", format="png", dpi=300)
 
     plt.show()
