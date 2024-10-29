@@ -11,6 +11,8 @@ import matplotlib.pyplot as plt
 def run_bandit(
     steps=100,
     epsilon=0.1,
+    ucb=False,
+    c=2,
     stationnary=True,
     k=10,
     method="sample average",
@@ -33,10 +35,18 @@ def run_bandit(
 
     for i in range(steps):
 
-        if np.random.random() < epsilon:
-            action = np.random.randint(0, arms_nb)
+        if ucb:
+            ucb_estimates = np.where(
+                action_count == 0,
+                np.inf,
+                q_estimates + c * np.sqrt(np.log(i + 1) / action_count + 1e-10),
+            )
+            action = np.argmax(ucb_estimates)
         else:
-            action = np.argmax(q_estimates)
+            if np.random.random() < epsilon:
+                action = np.random.randint(0, arms_nb)
+            else:
+                action = np.argmax(q_estimates)
 
         optimal = 1 if action == np.argmax(info["q_star"]) else 0
 
@@ -69,7 +79,7 @@ def get_metrics(rewards, optimal_actions):
     return average_rewards, optimal_pct
 
 
-def average_bandits(n=1000, **kwargs):
+def average_bandits(n=500, **kwargs):
     rewards = np.zeros((n, kwargs["steps"]))
     optimal_actions = np.zeros((n, kwargs["steps"]))
 
@@ -83,14 +93,15 @@ def average_bandits(n=1000, **kwargs):
 
 
 if __name__ == "__main__":
-    STEPS = 2500
+    STEPS = 1000
 
-    label1 = "Initial Q = 0"
-    label2 = "Initial Q = 5"
+    label1 = "ucb"
+    label2 = "e greedy"
     rewards1, optimal_actions1 = average_bandits(
         steps=STEPS,
         epsilon=0.1,
-        stationnary=False,
+        ucb=True,
+        stationnary=True,
         method="constant",
         alpha=0.1,
         initial_estimates=0,
@@ -99,7 +110,7 @@ if __name__ == "__main__":
     rewards2, optimal_actions2 = average_bandits(
         steps=STEPS,
         epsilon=0.1,
-        stationnary=False,
+        stationnary=True,
         method="constant",
         alpha=0.1,
         initial_estimates=5,
@@ -134,6 +145,6 @@ if __name__ == "__main__":
     plt.tight_layout()
     # Display the plot
 
-    plt.savefig("Ex2_6_diff_init_q_values_nonstationnary.png", format="png", dpi=300)
+    # plt.savefig("Ex2_6_diff_init_q_values_nonstationnary.png", format="png", dpi=300)
 
     plt.show()
