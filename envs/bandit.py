@@ -25,16 +25,17 @@ class KBanditEnv(gym.Env):
     def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
         super().reset(seed=seed)
 
-        true_q_values = []
-        if self.stationnary:
-            for i in range(self.k):
+        true_q_values = self.np_random.standard_normal(self.k)
 
-                # We generate the true value according to normal distribution with mean 0 and unit variance
-                true_q = self.np_random.normal(loc=0, scale=1)
-                true_q_values.append(true_q)
-        else:
-            START_Q = 0
-            true_q_values = [START_Q for i in range(self.k)]
+        # if self.stationnary:
+        #     for i in range(self.k):
+
+        #         # We generate the true value according to normal distribution with mean 0 and unit variance
+        #         true_q = self.np_random.normal(loc=0, scale=1)
+        #         true_q_values.append(true_q)
+        # else:
+        #     START_Q = 0
+        #     true_q_values = [START_Q for i in range(self.k)]
 
         self.true_q_values = true_q_values
 

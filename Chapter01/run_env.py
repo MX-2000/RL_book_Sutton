@@ -1,7 +1,11 @@
+from cProfile import label
 import gymnasium
 import envs
 import numpy as np
 import matplotlib.pyplot as plt
+
+# SEED = 6
+# np.random.seed(SEED)
 
 
 def run_bandit(
@@ -16,13 +20,16 @@ def run_bandit(
 
     arms_nb = k
     env = gymnasium.make("KArmedBandit-v0", k=arms_nb, stationnary=stationnary)
-    _, info = env.reset(seed=6)
+    _, info = env.reset()
 
-    q_estimates = [initial_estimates for i in range(arms_nb)]
-    action_count = [0 for i in range(arms_nb)]
+    q_estimates = np.zeros(shape=k) + initial_estimates
+    # [initial_estimates for i in range(arms_nb)]
 
-    rewards = []
-    optimal_actions = []
+    action_count = np.zeros(arms_nb)
+    # [0 for i in range(arms_nb)]
+
+    rewards = np.zeros(steps)
+    optimal_actions = np.zeros(steps)
 
     for i in range(steps):
 
@@ -46,8 +53,8 @@ def run_bandit(
                 reward - q_estimates[action]
             )
 
-        rewards.append(reward)
-        optimal_actions.append(optimal)
+        rewards[i] = reward
+        optimal_actions[i] = optimal
 
     return rewards, optimal_actions
 
@@ -62,9 +69,25 @@ def get_metrics(rewards, optimal_actions):
     return average_rewards, optimal_pct
 
 
+def average_bandits(n=1000, **kwargs):
+    rewards = np.zeros((n, kwargs["steps"]))
+    optimal_actions = np.zeros((n, kwargs["steps"]))
+
+    for i in range(n):
+        rewards[i:], optimal_actions[i] = run_bandit(**kwargs)
+
+    mean_rewards = rewards.mean(axis=0)
+    optimal_perc = optimal_actions.mean(axis=0)
+
+    return mean_rewards, optimal_perc
+
+
 if __name__ == "__main__":
-    STEPS = 25_000
-    rewards, optimal_actions = run_bandit(
+    STEPS = 2500
+
+    label1 = "Initial Q = 0"
+    label2 = "Initial Q = 5"
+    rewards1, optimal_actions1 = average_bandits(
         steps=STEPS,
         epsilon=0.1,
         stationnary=False,
@@ -72,10 +95,8 @@ if __name__ == "__main__":
         alpha=0.1,
         initial_estimates=0,
     )
-    rewards1, optimal_actions1 = get_metrics(rewards, optimal_actions)
-    # print(f"Epsilon 0.1: {rewards1[-1]}, {optimal_actions1[-1]}")
 
-    rewards, optimal_actions = run_bandit(
+    rewards2, optimal_actions2 = average_bandits(
         steps=STEPS,
         epsilon=0.1,
         stationnary=False,
@@ -83,13 +104,11 @@ if __name__ == "__main__":
         alpha=0.1,
         initial_estimates=5,
     )
-    rewards2, optimal_actions2 = get_metrics(rewards, optimal_actions)
-    # print(f"Epsilon 0.01: {rewards2[-1]}, {optimal_actions2[-1]}")
 
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10))
 
-    ax1.plot(list(range(STEPS)), rewards1, color="blue", label="Initial Q = 0")
-    ax1.plot(list(range(STEPS)), rewards2, color="red", label="Initial Q = +5")
+    ax1.plot(list(range(STEPS)), rewards1, color="blue", label=label1)
+    ax1.plot(list(range(STEPS)), rewards2, color="red", label=label2)
     # Adding labels and title
     ax1.set_xlabel("Steps")
     ax1.set_ylabel("Average Reward")
@@ -99,13 +118,13 @@ if __name__ == "__main__":
         list(range(STEPS)),
         optimal_actions1,
         color="blue",
-        label="Initial Q = 0",
+        label=label1,
     )
     ax2.plot(
         list(range(STEPS)),
         optimal_actions2,
         color="red",
-        label="Initial Q = +5",
+        label=label2,
     )
     # Adding labels and title
     ax2.set_xlabel("Steps")
@@ -115,6 +134,6 @@ if __name__ == "__main__":
     plt.tight_layout()
     # Display the plot
 
-    plt.savefig("Diff_init_Q_values_nonstationnary.png", format="png", dpi=300)
+    plt.savefig("Ex2_6_diff_init_q_values_nonstationnary.png", format="png", dpi=300)
 
     plt.show()
