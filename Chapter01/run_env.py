@@ -13,6 +13,8 @@ def run_bandit(
     epsilon=0.1,
     ucb=False,
     c=2,
+    gradient=False,
+    alpha_grad=0.1,
     stationnary=True,
     k=10,
     method="sample average",
@@ -30,12 +32,17 @@ def run_bandit(
     action_count = np.zeros(arms_nb)
     # [0 for i in range(arms_nb)]
 
-    rewards = np.zeros(steps)
-    optimal_actions = np.zeros(steps)
+    rewards = np.zeros((steps,))
+    optimal_actions = np.zeros((steps,))
+
+    H_ = np.zeros((k,))
+    grad_probs = np.exp(H_) / np.sum(np.exp(H_))
+    baseline = 0
 
     for i in range(steps):
-
-        if ucb:
+        if gradient:
+            action = np.random.choice(k, p=grad_probs)
+        elif ucb:
             ucb_estimates = np.where(
                 action_count == 0,
                 np.inf,
@@ -53,7 +60,18 @@ def run_bandit(
         _, reward, _, _, info = env.step(action)
         action_count[action] += 1
 
-        if method == "sample average":
+        if gradient:
+            baseline += alpha_grad * (reward - baseline)
+            for j in range(k):
+                if j == action:
+                    H_[action] = H_[action] + alpha_grad * (reward - baseline) * (
+                        1 - grad_probs[j]
+                    )
+                else:
+                    H_[j] = H_[j] - alpha_grad * (reward - baseline) * grad_probs[j]
+            grad_probs = np.exp(H_) / np.sum(np.exp(H_))
+
+        elif method == "sample average":
 
             q_estimates[action] = q_estimates[action] + (1 / action_count[action]) * (
                 reward - q_estimates[action]
@@ -95,12 +113,13 @@ def average_bandits(n=500, **kwargs):
 if __name__ == "__main__":
     STEPS = 1000
 
-    label1 = "ucb"
+    label1 = "gradient"
     label2 = "e greedy"
     rewards1, optimal_actions1 = average_bandits(
         steps=STEPS,
         epsilon=0.1,
-        ucb=True,
+        gradient=True,
+        alpha_grad=0.1,
         stationnary=True,
         method="constant",
         alpha=0.1,
