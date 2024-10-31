@@ -39,7 +39,7 @@ def run_bandit(
             ucb_estimates = np.where(
                 action_count == 0,
                 np.inf,
-                q_estimates + c * np.sqrt(np.log(i + 1) / action_count + 1e-10),
+                q_estimates + c * np.sqrt(np.log(i + 1) / action_count),
             )
             action = np.argmax(ucb_estimates)
         else:
