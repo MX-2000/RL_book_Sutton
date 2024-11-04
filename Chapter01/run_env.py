@@ -1,4 +1,3 @@
-from cProfile import label
 import gymnasium
 import envs
 import numpy as np
@@ -110,7 +109,7 @@ def average_bandits(n=500, **kwargs):
     return mean_rewards, optimal_perc
 
 
-if __name__ == "__main__":
+def run_twos():
     STEPS = 1000
 
     label1 = "gradient"
@@ -167,3 +166,73 @@ if __name__ == "__main__":
     # plt.savefig("Ex2_6_diff_init_q_values_nonstationnary.png", format="png", dpi=300)
 
     plt.show()
+
+
+def run_param_study():
+    steps = 200_000
+    labels = [
+        "$\epsilon$-greedy sample avrg",
+        "$\epsilon$-greedy $\\alpha=0.1$",
+        "gradient bandit",
+        "UCB",
+        "optimistic initialization",
+    ]
+    generators = [
+        lambda epsilon: run_bandit(
+            steps=steps, epsilon=epsilon, stationnary=False, method="sample average"
+        ),
+        lambda epsilon: run_bandit(
+            steps=steps,
+            epsilon=epsilon,
+            stationnary=False,
+            method="constant",
+            alpha=0.1,
+        ),
+        lambda alpha: run_bandit(
+            steps=steps, gradient=True, alpha_grad=alpha, stationnary=False
+        ),
+        lambda coef: run_bandit(
+            steps=steps, ucb=True, c=coef, stationnary=False, method="sample average"
+        ),
+        lambda initial_estimates: run_bandit(
+            steps=steps,
+            epsilon=0.0,
+            stationnary=False,
+            method="constant",
+            alpha=0.1,
+            initial_estimates=initial_estimates,
+        ),
+    ]
+
+    parameters = [
+        np.arange(-7, -1, dtype=np.float32),
+        np.arange(-7, -1, dtype=np.float32),
+        np.arange(-5, 2, dtype=np.float32),
+        np.arange(-4, 3, dtype=np.float32),
+        np.arange(-2, 3, dtype=np.float32),
+    ]
+
+    # Organize rewards by parameter set
+    rewards_all = []
+    for gen, paramameter in zip(generators, parameters):
+        rewards = []  # Store rewards for the current generator
+        for param in paramameter:
+            r, _ = gen(pow(2, param))
+            mean_reward = r[100_000:].mean()
+            rewards.append(mean_reward)
+        rewards_all.append(rewards)
+
+    # Plot each label with corresponding parameters and rewards
+    for label, parameter, rewards in zip(labels, parameters, rewards_all):
+        plt.plot(parameter, rewards, label=label)
+
+    plt.xlabel("Parameter($2^x$)")
+    plt.ylabel("Average reward")
+    plt.legend()
+
+    plt.savefig("./Chapter01/figure_e_2_11.png")
+    plt.close()
+
+
+if __name__ == "__main__":
+    run_param_study()
