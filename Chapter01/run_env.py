@@ -179,25 +179,25 @@ def run_param_study():
     ]
     generators = [
         lambda epsilon: run_bandit(
-            steps=steps, epsilon=epsilon, stationnary=False, method="sample average"
+            steps=steps, epsilon=epsilon, stationnary=True, method="sample average"
         ),
         lambda epsilon: run_bandit(
             steps=steps,
             epsilon=epsilon,
-            stationnary=False,
+            stationnary=True,
             method="constant",
             alpha=0.1,
         ),
         lambda alpha: run_bandit(
-            steps=steps, gradient=True, alpha_grad=alpha, stationnary=False
+            steps=steps, gradient=True, alpha_grad=alpha, stationnary=True
         ),
         lambda coef: run_bandit(
-            steps=steps, ucb=True, c=coef, stationnary=False, method="sample average"
+            steps=steps, ucb=True, c=coef, stationnary=True, method="sample average"
         ),
         lambda initial_estimates: run_bandit(
             steps=steps,
             epsilon=0.0,
-            stationnary=False,
+            stationnary=True,
             method="constant",
             alpha=0.1,
             initial_estimates=initial_estimates,
@@ -230,7 +230,7 @@ def run_param_study():
     plt.ylabel("Average reward")
     plt.legend()
 
-    plt.savefig("./Chapter01/figure_e_2_11.png")
+    plt.savefig("./Chapter01/figure_e_2_11_stationnary.png")
     plt.close()
 
 
