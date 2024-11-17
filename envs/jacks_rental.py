@@ -13,12 +13,22 @@ logger.add(log_file_path, mode="w")
 
 class JacksRental(gym.Env):
 
-    def __init__(self, max_move, logging=False):
+    def __init__(
+        self,
+        max_move,
+        max_cars,
+        rent_r,
+        moving_cost,
+        max_poisson,
+        p_lambdas,
+        logging=False,
+    ):
 
-        self.moving_cost = 2
+        self.moving_cost = moving_cost
         self.max_move = max_move
-        self.rent_r = 10
-        self.max_cars = 20
+        self.rent_r = rent_r
+        self.max_poisson = max_poisson
+        self.max_cars = max_cars
 
         self.logging = logging
 
@@ -33,13 +43,7 @@ class JacksRental(gym.Env):
         self.cars = np.zeros((2,), dtype=np.int32)  # Number of cars in each location
 
         # First col is the renting request, second col is returns
-        self.lambdas = np.array(
-            [[3, 4], [3, 2]], dtype=np.int32
-        )  # Used for poisson distributions
-
-        self.last_car_returns = np.zeros(
-            (2,), dtype=np.int32
-        )  # Cars become available for renting the day after they are returned.
+        self.lambdas = p_lambdas
 
     def _get_obs(self):
         if self.logging:
@@ -72,10 +76,10 @@ class JacksRental(gym.Env):
         assert np.all(self.cars >= 0)
 
         request_gen = np.random.poisson(self.lambdas)
+        request_gen = np.clip(request_gen, None, self.max_poisson)
 
         # Cars become available for renting the day after they are returned.
-        self.cars += self.last_car_returns
-        self.last_car_returns = request_gen[:, 1]
+        self.cars += request_gen[:, 1]
 
         tot_cars_rented = min(request_gen[0, 0], self.cars[0]) + min(
             request_gen[1, 0], self.cars[1]
@@ -90,6 +94,45 @@ class JacksRental(gym.Env):
         self.cars = np.clip(self.cars, 0, self.max_cars)
 
         return self._get_obs(), reward, False, False, self._get_info()
+
+    def simulate_step(self, state, action):
+        """
+        Used for dynamic programming algorithms
+        """
+
+        if self.logging:
+            logger.debug(f"Action: {action}")
+
+        assert self.action_space.contains(action)
+        assert self.observation_space.contains(state)
+
+        reward = -self.moving_cost * abs(action)  # Every move costs
+
+        # action < 0 means we move from loc2 to loc1
+        state[0] -= action
+        state[1] += action
+
+        assert np.all(state >= 0)
+
+        request_gen = np.random.poisson(self.lambdas)
+        request_gen = np.clip(request_gen, None, self.max_poisson)
+
+        # Cars become available for renting the day after they are returned.
+        state += request_gen[:, 1]
+
+        tot_cars_rented = min(request_gen[0, 0], state[0]) + min(
+            request_gen[1, 0], state[1]
+        )
+
+        # Cars get rented
+        state -= request_gen[:, 0]
+
+        # If Jack has a car available, he rents it out and is credited self.rent_r
+        reward += tot_cars_rented * self.rent_r
+
+        state = np.clip(state, 0, self.max_cars)
+
+        return state, reward, False, False, {}
 
 
 if __name__ == "__main__":
