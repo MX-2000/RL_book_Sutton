@@ -95,10 +95,13 @@ class JacksRental(gym.Env):
 
         return self._get_obs(), reward, False, False, self._get_info()
 
-    def simulate_step(self, state, action):
+    def simulate_step(self, pstate, action, poisson_gen):
         """
         Used for dynamic programming algorithms
         """
+        state = np.array(
+            [pstate[0], pstate[1]], dtype=np.int32
+        )  # Trick for pstate being tuple item assignement
 
         if self.logging:
             logger.debug(f"Action: {action}")
@@ -114,8 +117,9 @@ class JacksRental(gym.Env):
 
         assert np.all(state >= 0)
 
-        request_gen = np.random.poisson(self.lambdas)
-        request_gen = np.clip(request_gen, None, self.max_poisson)
+        # request_gen = np.random.poisson(self.lambdas)
+        # request_gen = np.clip(request_gen, None, self.max_poisson)
+        request_gen = poisson_gen
 
         # Cars become available for renting the day after they are returned.
         state += request_gen[:, 1]
