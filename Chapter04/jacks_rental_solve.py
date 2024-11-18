@@ -144,8 +144,8 @@ def policy_iteration(gamma):
         pi, policy_stable = policy_improvment(V, pi, poisson_probs, gamma)
 
         print(f"Iteration {i}, Policy stable? {policy_stable}")
-        values.append(V)
-        policies.append(pi)
+        values.append(V.copy())
+        policies.append(pi.copy())
 
         i += 1
         if policy_stable:
@@ -201,10 +201,12 @@ def main():
 
     values, policies = policy_iteration(GAMMA)
 
+    print(f"{len(policies)} policies")
+
     fig, axes = plt.subplots(2, 3, figsize=(15, 10))
     axes = axes.flatten()
 
-    for i in range(len(policies)):
+    for i in range(5):
         ax = axes[i]
         policy = policies[i]
         contour = ax.contour(
@@ -232,7 +234,10 @@ def main():
     plt.tight_layout()
     plt.show()
 
-    plt.savefig("04_07_original.png")
+    fig.canvas.draw()
+
+    # Save the figure with tight bounding box
+    plt.savefig("04_07_original.png", bbox_inches="tight")
 
 
 def plot_agent(car_moves, rewards, cars):
