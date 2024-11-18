@@ -158,43 +158,7 @@ def policy_improvment(V, pi, poisson_probs, gamma):
         for action in range(-MAX_MOVE, MAX_MOVE + 1):
             pi_s = action
 
-            # Apply action and calculate moving cost
-            cars_loc1 = min(state[0] - pi_s, MAX_CARS)
-            cars_loc2 = min(state[1] + pi_s, MAX_CARS)
-            moving_cost = MOVING_COST * abs(pi_s)
-
-            expected_return = -moving_cost
-
-            # Iterate over possible rental requests at both locations
-            for req1 in range(0, MAX_POISSON + 1):
-                prob_req1 = poisson_probs[LAMBDAS[0, 0]][req1]
-                num_rentals_loc1 = min(cars_loc1, req1)
-                reward_loc1 = RENT_REWARD * num_rentals_loc1
-                cars_loc1_end = cars_loc1 - num_rentals_loc1
-
-                for req2 in range(0, MAX_POISSON + 1):
-                    prob_req2 = poisson_probs[LAMBDAS[1, 0]][req2]
-                    num_rentals_loc2 = min(cars_loc2, req2)
-                    reward_loc2 = RENT_REWARD * num_rentals_loc2
-                    cars_loc2_end = cars_loc2 - num_rentals_loc2
-
-                    prob_req = prob_req1 * prob_req2
-                    immediate_reward = reward_loc1 + reward_loc2
-
-                    # Iterate over possible returns at both locations
-                    for ret1 in range(0, MAX_POISSON + 1):
-                        prob_ret1 = poisson_probs[LAMBDAS[0, 1]][ret1]
-                        cars_loc1_next = min(cars_loc1_end + ret1, MAX_CARS)
-
-                        for ret2 in range(0, MAX_POISSON + 1):
-                            prob_ret2 = poisson_probs[LAMBDAS[1, 1]][ret2]
-                            cars_loc2_next = min(cars_loc2_end + ret2, MAX_CARS)
-
-                            prob = prob_req * prob_ret1 * prob_ret2
-                            next_state = (cars_loc1_next, cars_loc2_next)
-                            expected_return += prob * (
-                                immediate_reward + gamma * V[next_state]
-                            )
+            expected_return = get_expected_return(V, state, pi_s, poisson_probs, gamma)
 
             action_returns[action] = expected_return
 
