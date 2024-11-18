@@ -74,9 +74,9 @@ def build_poisson_probs(max, lambdas):
     return poisson_probs
 
 
-def policy_evaluation_faster(V, pi, poisson_probs, gamma):
-    delta = 100
-    threshold = 10
+def policy_evaluation(V, pi, poisson_probs, gamma):
+    delta = 1
+    threshold = 1e-3
 
     while delta > threshold:
         delta = 0
@@ -130,7 +130,7 @@ def policy_iteration(gamma):
     poisson_probs = build_poisson_probs(MAX_POISSON, LAMBDAS)
 
     while True:
-        V = policy_evaluation_faster(V, pi, poisson_probs, gamma)
+        V = policy_evaluation(V, pi, poisson_probs, gamma)
         pi, policy_stable = policy_improvment(V, pi, poisson_probs, gamma)
 
         print(f"Policy stable? {policy_stable}")
