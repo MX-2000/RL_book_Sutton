@@ -22,15 +22,31 @@ MOVING_COST = 2
 LAMBDAS = np.array([[3, 4], [3, 2]], dtype=np.int32)
 MAX_POISSON = highest_poisson(np.max(LAMBDAS), 0.99)
 GAMMA = 0.9
+MAX_PARKING = 10
+OVERPARK_COST = 4
+ORIGINAL = False
 
 
 def get_expected_return(V, state, pi_s, poisson_probs, gamma):
     # Apply action and calculate moving cost
     cars_loc1 = min(state[0] - pi_s, MAX_CARS)
     cars_loc2 = min(state[1] + pi_s, MAX_CARS)
+
     moving_cost = MOVING_COST * abs(pi_s)
 
-    expected_return = -moving_cost
+    parking_cost = 0
+    if not ORIGINAL:
+        if pi_s > 0:
+            # First car to move from loc1 to loc2 is free
+            moving_cost -= MOVING_COST
+
+        # Any cars kept above MAX_PARKING cost an extra 4$ for all cars in a location
+        if cars_loc1 > MAX_PARKING:
+            parking_cost += 4
+        if cars_loc2 > MAX_PARKING:
+            parking_cost += 4
+
+    expected_return = -(moving_cost + parking_cost)
 
     # Iterate over possible rental requests at both locations
     for req1 in range(0, MAX_POISSON + 1):
@@ -133,8 +149,8 @@ def policy_iteration(gamma):
     V = np.zeros((MAX_CARS + 1, MAX_CARS + 1), dtype=np.float32)
     pi = np.zeros((MAX_CARS + 1, MAX_CARS + 1), dtype=np.int32)
 
-    values.append(V)
-    policies.append(pi)
+    values.append(V.copy())
+    policies.append(pi.copy())
 
     poisson_probs = build_poisson_probs(MAX_POISSON, LAMBDAS)
 
@@ -237,7 +253,9 @@ def main():
     fig.canvas.draw()
 
     # Save the figure with tight bounding box
-    plt.savefig("04_07_original.png", bbox_inches="tight")
+    plt.savefig(
+        f"04_07_{'original' if ORIGINAL else 'modified'}.png", bbox_inches="tight"
+    )
 
 
 def plot_agent(car_moves, rewards, cars):
