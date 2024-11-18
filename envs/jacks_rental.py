@@ -78,9 +78,6 @@ class JacksRental(gym.Env):
         request_gen = np.random.poisson(self.lambdas)
         request_gen = np.clip(request_gen, None, self.max_poisson)
 
-        # Cars become available for renting the day after they are returned.
-        self.cars += request_gen[:, 1]
-
         tot_cars_rented = min(request_gen[0, 0], self.cars[0]) + min(
             request_gen[1, 0], self.cars[1]
         )
@@ -90,6 +87,9 @@ class JacksRental(gym.Env):
 
         # If Jack has a car available, he rents it out and is credited self.rent_r
         reward += tot_cars_rented * self.rent_r
+
+        # Cars become available for renting the day after they are returned.
+        self.cars += request_gen[:, 1]
 
         self.cars = np.clip(self.cars, 0, self.max_cars)
 
