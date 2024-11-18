@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import poisson
 import time
+from mpl_toolkits.mplot3d import Axes3D
 
 
 def highest_poisson(l, p):
@@ -76,7 +77,7 @@ def build_poisson_probs(max, lambdas):
 
 def policy_evaluation(V, pi, poisson_probs, gamma):
     delta = 1
-    threshold = 1e-3
+    threshold = 1e-2
 
     while delta > threshold:
         delta = 0
@@ -102,16 +103,24 @@ def policy_improvment(V, pi, poisson_probs, gamma):
         action_returns = np.full(shape=(2 * MAX_MOVE + 1,), fill_value=-np.inf)
 
         # We need to find the argmax for this
-        for action in range(-MAX_MOVE, MAX_MOVE + 1):
-            pi_s = action
+        for action in range(2 * MAX_MOVE + 1):
+            real_action = (
+                action - MAX_MOVE
+            )  # Real actions range from -MAX_MOVE to MAX_MOVE
 
-            expected_return = get_expected_return(V, state, pi_s, poisson_probs, gamma)
+            expected_return = get_expected_return(
+                V, state, real_action, poisson_probs, gamma
+            )
 
             action_returns[action] = expected_return
 
-        pi[state] = np.argmax(action_returns)
+        new_action = (
+            np.argmax(action_returns) - MAX_MOVE
+        )  # Real actions range from -MAX_MOVE to MAX_MOVE
 
-        if old_action != pi[state]:
+        pi[state] = new_action
+
+        if old_action != new_action:
             policy_stable = False
 
     return pi, policy_stable
@@ -129,16 +138,20 @@ def policy_iteration(gamma):
 
     poisson_probs = build_poisson_probs(MAX_POISSON, LAMBDAS)
 
+    i = 0
     while True:
         V = policy_evaluation(V, pi, poisson_probs, gamma)
         pi, policy_stable = policy_improvment(V, pi, poisson_probs, gamma)
 
-        print(f"Policy stable? {policy_stable}")
+        print(f"Iteration {i}, Policy stable? {policy_stable}")
         values.append(V)
         policies.append(pi)
 
+        i += 1
         if policy_stable:
             break
+        else:
+            print(pi)
 
     return values, policies
 
@@ -170,7 +183,7 @@ def random_strat(env, days):
     return car_moves, cars, rewards
 
 
-def main(days):
+def main():
 
     # env = gym.make(
     #     "JacksRental-v0",
@@ -187,6 +200,39 @@ def main(days):
     # return car_moves, cars, rewards
 
     values, policies = policy_iteration(GAMMA)
+
+    fig, axes = plt.subplots(2, 3, figsize=(15, 10))
+    axes = axes.flatten()
+
+    for i in range(len(policies)):
+        ax = axes[i]
+        policy = policies[i]
+        contour = ax.contour(
+            np.arange(MAX_CARS + 1),
+            np.arange(MAX_CARS + 1),
+            policy,
+            levels=np.arange(-5, 6),
+        )
+        ax.clabel(contour, inline=True, fontsize=8)
+        ax.set_title(f"$\\pi_{{{i}}}$")
+        ax.set_xlabel("#Cars at second location")
+        ax.set_ylabel("#Cars at first location")
+
+    # 3D Surface plot for the value function
+    ax = axes[-1]
+    X, Y = np.meshgrid(np.arange(MAX_CARS + 1), np.arange(MAX_CARS + 1))
+    ax = fig.add_subplot(2, 3, 6, projection="3d")
+    surf = ax.plot_surface(X, Y, values[-1], cmap="viridis", edgecolor="k")
+    ax.set_xlabel("#Cars at second location")
+    ax.set_ylabel("#Cars at first location")
+    ax.set_zlabel("Value")
+    ax.set_title(f"$V(\\pi_{{{len(policies)}}})$")
+
+    # Adjust layout
+    plt.tight_layout()
+    plt.show()
+
+    plt.savefig("04_07_original.png")
 
 
 def plot_agent(car_moves, rewards, cars):
@@ -216,5 +262,4 @@ def plot_agent(car_moves, rewards, cars):
 
 
 if __name__ == "__main__":
-    days = 100
-    values, policies = main(days)
+    main()
