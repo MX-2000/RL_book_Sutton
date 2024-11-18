@@ -186,12 +186,10 @@ def main(days):
     # car_moves, cars, rewards = random_strat(env, days)
     # return car_moves, cars, rewards
 
-    V, pi = policy_iteration(GAMMA)
+    values, policies = policy_iteration(GAMMA)
 
 
-if __name__ == "__main__":
-    days = 100
-    car_moves, cars, rewards = main(days)
+def plot_agent(car_moves, rewards, cars):
 
     fig, axs = plt.subplots(3, 1, figsize=(15, 8))
 
@@ -215,3 +213,8 @@ if __name__ == "__main__":
     # Adjust layout to prevent overlap
     plt.tight_layout()
     plt.show()
+
+
+if __name__ == "__main__":
+    days = 100
+    values, policies = main(days)
