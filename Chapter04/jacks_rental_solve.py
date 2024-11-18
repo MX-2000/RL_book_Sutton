@@ -72,59 +72,6 @@ def build_poisson_probs(max, lambdas):
         poisson_probs[rate] = probs
 
     return poisson_probs
-    # prob_dict = {
-    #     "loc1_req": np.arange(max + 1),
-    #     "loc1_ret": np.arange(max + 1),
-    #     "loc2_req": np.arange(max + 1),
-    #     "loc2_ret": np.arange(max + 1),
-    # }
-    # prob_dict["loc1_req"] = poisson.pmf(prob_dict["loc1_req"], lambdas[0, 0])
-    # prob_dict["loc1_ret"] = poisson.pmf(prob_dict["loc1_ret"], lambdas[0, 1])
-    # prob_dict["loc2_req"] = poisson.pmf(prob_dict["loc2_req"], lambdas[1, 0])
-    # prob_dict["loc2_ret"] = poisson.pmf(prob_dict["loc2_ret"], lambdas[1, 1])
-
-    # # dims are (loc1_req, loc1_ret, loc2_req, loc2_ret)
-    # result = np.zeros(
-    #     shape=(MAX_POISSON + 1, MAX_POISSON + 1, MAX_POISSON + 1, MAX_POISSON + 1)
-    # )
-    # for pos in np.ndindex(result.shape):
-
-    #     result[pos] = (
-    #         prob_dict["loc1_req"][pos[0]]
-    #         * prob_dict["loc1_ret"][pos[1]]
-    #         * prob_dict["loc2_req"][pos[2]]
-    #         * prob_dict["loc2_ret"][pos[3]]
-    #     )
-
-    # return result
-
-
-def policy_evaluation(env, V, pi, poisson_probs, gamma):
-    obs, info = env.reset()
-
-    delta = 1
-    threshold = 1e-2
-
-    while delta > threshold:
-        delta = 0
-        for state in np.ndindex(V.shape):
-            v = V[state]
-            pi_s = pi[state]
-            new_estimate = 0
-            for prob_state in np.ndindex(poisson_probs.shape):
-                prob = poisson_probs[prob_state]
-                # For shape compatibility
-                poisson_gen = np.array(prob_state).reshape(2, 2)
-                next_state, reward, _, _, _ = env.unwrapped.simulate_step(
-                    state, pi_s, poisson_gen
-                )
-                v_next = V[tuple(next_state)]
-                new_estimate += prob * (reward + gamma * v_next)
-            V[state] = new_estimate
-            delta = max(delta, abs(v - new_estimate))
-        print("Iteration over, ", delta)
-
-    return V
 
 
 def policy_evaluation_faster(V, pi, poisson_probs, gamma):
