@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-P_HEAD = 0.1
+P_HEAD = 0.4
 REWARD_WIN = 1
 TARGET = 100
 
@@ -29,7 +29,7 @@ def get_best_action_value(V, state, gamma=1):
 
 def value_iteration(V, pi, gamma=1):
     delta = 1
-    threshold = 1e-9
+    threshold = 1e-55
 
     values = [V.copy()]
 
