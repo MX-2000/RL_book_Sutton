@@ -19,6 +19,7 @@ class Racetrack(gym.Env):
         self,
         grid_file_path,
         max_velocity=4,
+        noise=True,
         logging=False,
     ):
 
@@ -31,6 +32,7 @@ class Racetrack(gym.Env):
 
         self.max_velocity = max_velocity
         self.logging = logging
+        self.noise = noise
 
         # We can decide of the velocity for horizontal and vertical moves
         self.action_space = gym.spaces.MultiDiscrete([3, 3])
@@ -89,13 +91,14 @@ class Racetrack(gym.Env):
         assert action.size == 2
         action = np.ravel(action)
 
-        # 0.1 prob that velocity increments are both zero
-        prob = self.np_random.random()
-        if prob < 0.1:
-            action = np.zeros(shape=(2,), dtype=np.int32)
+        if self.noise:
+            # 0.1 prob that velocity increments are both zero
+            prob = self.np_random.random()
+            if prob < 0.1:
+                action = np.zeros(shape=(2,), dtype=np.int32)
 
-            if self.logging:
-                logger.debug("Randomly nulling velocity")
+                if self.logging:
+                    logger.debug("Randomly nulling velocity")
 
         if self.logging:
             logger.debug(f"Action is {action}")
