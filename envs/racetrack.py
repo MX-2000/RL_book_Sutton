@@ -61,7 +61,7 @@ class Racetrack(gym.Env):
 
         return {
             "car_position": self.car_position,
-            "car_velocity": self.car_velocity,
+            "velocity": self.car_velocity,
         }
 
     def _get_info(self):
