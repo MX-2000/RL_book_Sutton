@@ -44,7 +44,7 @@ class Racetrack(gym.Env):
         self.observation_space = gym.spaces.Dict(
             {
                 "car_position": gym.spaces.MultiDiscrete(
-                    [max(self.grid.shape), max(self.grid.shape)]
+                    [self.grid.shape[0], self.grid.shape[1]]
                 ),
                 "velocity": gym.spaces.MultiDiscrete(
                     [self.max_velocity + 1, self.max_velocity + 1]
@@ -76,11 +76,21 @@ class Racetrack(gym.Env):
             [start_tiles_idx[0][idx], start_tiles_idx[1][idx]], dtype=np.int32
         )
 
+        zero_velocity_index = self.action_mapping.index(0)
         self.car_velocity = np.zeros(shape=(2,), dtype=np.int32)
+        self.car_velocity.fill(zero_velocity_index)
 
         return self._get_obs(), self._get_info()
 
     def step(self, action):
+
+        if action.size != 2:
+            if self.logging:
+                logger.debug(f"Received flattened action: {action}")
+            action = np.unravel_index(action, self.action_space.nvec)
+            if self.logging:
+                logger.debug(f"After unrav: {action}")
+
         if self.logging:
             logger.debug(f"Old position: {self._get_obs()['car_position']}")
 
@@ -104,10 +114,25 @@ class Racetrack(gym.Env):
             logger.debug(f"Action is {action}")
 
         # Clip velocity to 0,max_velocity and increments of -1,1 or 0 and not 0,0
-        added_velocity = action
+        added_velocity = self.action_mapping[action[0]], self.action_mapping[action[1]]
+
+        if self.logging:
+            logger.debug(f"Mapped action: {added_velocity}")
+
         assert np.all(np.isin(added_velocity, self.action_mapping))
         new_vel = self.car_velocity + added_velocity
         new_vel = np.clip(new_vel, 0, self.max_velocity)
+
+        # New vel can't be 0,0 unless we are on the starting line
+        start_tiles_idx = np.where(self.grid == self.grid_mapping["S"])
+        # print(start_tiles_idx)
+        # print(self.car_position)
+        # print(np.isin(self.car_position, start_tiles_idx).all())
+        # print(new_vel)
+        # print((new_vel == 0).all())
+        # print("car velo", self.car_velocity)
+        if np.isin(self.car_position, start_tiles_idx).all() and (new_vel == 0).all():
+            new_vel = self.car_velocity.copy()
 
         if self.logging:
             logger.debug(f"Old vel: {self.car_velocity}, new vel: {new_vel}")
@@ -167,6 +192,9 @@ if __name__ == "__main__":
     obs, _ = env.reset()
     print(obs)
     action = env.action_space.sample()
-    action = env.action_mapping[action[0]], env.action_mapping[action[1]]
+    action = np.array([1, 1])
+    print(action)
+    # action = env.action_mapping[action[0]], env.action_mapping[action[1]]
+    # print(action)
     obs, r, terminated, truncated, info = env.step(action)
     print(obs)
