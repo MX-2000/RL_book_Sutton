@@ -36,9 +36,7 @@ class Racetrack(gym.Env):
 
         # We can decide of the velocity for horizontal and vertical moves
         self.action_space = gym.spaces.MultiDiscrete([3, 3])
-
-        # Because we actually can increment -1, 0 or 1
-        self.action_mapping = [-1, 0, 1]
+        self.actions = [-1, 0, 1]  # that's the only possible added velocity
 
         # The agent observes the map, its own position and velocity vector
         self.observation_space = gym.spaces.Dict(
@@ -76,20 +74,19 @@ class Racetrack(gym.Env):
             [start_tiles_idx[0][idx], start_tiles_idx[1][idx]], dtype=np.int32
         )
 
-        zero_velocity_index = self.action_mapping.index(0)
         self.car_velocity = np.zeros(shape=(2,), dtype=np.int32)
-        self.car_velocity.fill(zero_velocity_index)
+
+        if self.logging:
+            logger.debug(f"Reset state: {self.car_position}, {self.car_velocity}")
 
         return self._get_obs(), self._get_info()
 
     def step(self, action):
+        """
+        Args:
+            action (tuple): dx,dy for the added velocity
 
-        if action.size != 2:
-            if self.logging:
-                logger.debug(f"Received flattened action: {action}")
-            action = np.unravel_index(action, self.action_space.nvec)
-            if self.logging:
-                logger.debug(f"After unrav: {action}")
+        """
 
         if self.logging:
             logger.debug(f"Old position: {self._get_obs()['car_position']}")
@@ -99,7 +96,7 @@ class Racetrack(gym.Env):
 
         action = np.array(action, dtype=np.int32)
         assert action.size == 2
-        action = np.ravel(action)
+        assert action.all() in self.actions
 
         if self.noise:
             # 0.1 prob that velocity increments are both zero
@@ -114,23 +111,13 @@ class Racetrack(gym.Env):
             logger.debug(f"Action is {action}")
 
         # Clip velocity to 0,max_velocity and increments of -1,1 or 0 and not 0,0
-        added_velocity = self.action_mapping[action[0]], self.action_mapping[action[1]]
+        added_velocity = action
 
-        if self.logging:
-            logger.debug(f"Mapped action: {added_velocity}")
-
-        assert np.all(np.isin(added_velocity, self.action_mapping))
         new_vel = self.car_velocity + added_velocity
         new_vel = np.clip(new_vel, 0, self.max_velocity)
 
         # New vel can't be 0,0 unless we are on the starting line
         start_tiles_idx = np.where(self.grid == self.grid_mapping["S"])
-        # print(start_tiles_idx)
-        # print(self.car_position)
-        # print(np.isin(self.car_position, start_tiles_idx).all())
-        # print(new_vel)
-        # print((new_vel == 0).all())
-        # print("car velo", self.car_velocity)
         if np.isin(self.car_position, start_tiles_idx).all() and (new_vel == 0).all():
             new_vel = self.car_velocity.copy()
 
@@ -190,11 +177,14 @@ if __name__ == "__main__":
     grid_file = os.path.join("Chapter05", "racetrack1.txt")
     env = Racetrack(grid_file, logging=True)
     obs, _ = env.reset()
-    print(obs)
+    # print(obs)
+    action_mapping = [-1, 0, 1]
     action = env.action_space.sample()
-    action = np.array([1, 1])
+    action = action_mapping[action[0]], action_mapping[action[1]]
     print(action)
-    # action = env.action_mapping[action[0]], env.action_mapping[action[1]]
+    # action = np.array([1, 1])
     # print(action)
+    # # action = env.action_mapping[action[0]], env.action_mapping[action[1]]
+    # # print(action)
     obs, r, terminated, truncated, info = env.step(action)
-    print(obs)
+    # print(obs)

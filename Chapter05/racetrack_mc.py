@@ -4,6 +4,7 @@ import os
 import numpy as np
 import math
 import time
+from gymnasium.spaces import flatten, unflatten
 
 from loguru import logger
 
@@ -76,14 +77,14 @@ def mc_control(num_episodes, gamma=1, epsilon=1):
     C = np.zeros(shape=(Q.shape))
 
     # We initialize it to take action uniformely at first so it doesn't get stuck in taking the first action
-    pi = np.argmax(Q, axis=1)
+    pi = np.array([argmax_last(Q[state]) for state in range(num_states)])
 
     # For debug
     start_q = Q[[13381, 13356, 13331, 13306, 13281, 13256], :]
     tot_rs = []
 
     for episode in range(num_episodes):
-        epsilon = 0.1 + (1 - 0.1) * (1 - episode / num_episodes) ** 1
+        epsilon = 0.2 + (1 - 0.2) * (1 - episode / num_episodes) ** 1
         # Initialise a policy to be epsilon soft regarding to pi
         b = np.ones(shape=(num_states, num_actions), dtype=np.float64) * (
             epsilon / num_actions
@@ -121,7 +122,6 @@ def mc_control(num_episodes, gamma=1, epsilon=1):
         if episode % 100 == 0:
             print(f"Episode {episode}/{num_episodes}")
             print(f"Mean steps over 100 ep: {np.mean(tot_rs)}")
-            print("Eps: ", epsilon)
             tot_rs = []
 
             if not np.all(Q[[13381, 13356, 13331, 13306, 13281, 13256], :] == start_q):
@@ -136,11 +136,19 @@ def mc_control(num_episodes, gamma=1, epsilon=1):
 
 
 if __name__ == "__main__":
-    pi = mc_control(2000)
+    # pi = mc_control(10_000)
 
-    # file_path = os.path.join("Chapter05", "racetrack1.txt")
-    # env = gym.make("Racetrack-v0", grid_file_path=file_path, logging=False)
-    # obs, _ = env.reset()
+    file_path = os.path.join("Chapter05", "racetrack1.txt")
+    env = gym.make("Racetrack-v0", grid_file_path=file_path, logging=False)
+    obs, _ = env.reset()
+    fo = flatten(env.observation_space, obs)
+    print(fo)
+    a = env.action_space.sample()
+    print(a)
+    print(flatten(env.action_space, a))
+
+    # TODO how to work with these flatten/unflatten to keep track of states / Q values (because I need indices)
+    raise "read here"
     # car_pos_space = env.observation_space["car_position"]
     # velocity_space = env.observation_space["velocity"]
 
