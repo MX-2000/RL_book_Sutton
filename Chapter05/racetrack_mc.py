@@ -7,48 +7,67 @@ import time
 from gymnasium.spaces import flatten, unflatten
 
 from loguru import logger
+import matplotlib.pyplot as plt
+
+import pickle
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 log_file_path = os.path.join(script_dir, "mc_control.log")
 logger.add(log_file_path, mode="w")
 
+mapped_action = [-1, 0, 1]
 
-def get_episode(env, policy):
+
+def get_episode(env, policy, render=False):
     """Simulate an episode following a policy and returns the history of actions, states and returns"""
-    states = []
-    actions_idx = []
+    states_idx = []  # Index of 1D flattened state
+    actions_idx = []  # Index of 1D flattened actions
     rewards = []
 
-    possible_actions = np.arange(int(np.prod(env.action_space.nvec)))
+    possible_actions = np.arange(int(np.prod(env.action_space.nvec)))  # [0,1,2,3,4...]
 
     car_pos_space = env.observation_space["car_position"]
     velocity_space = env.observation_space["velocity"]
 
-    combined_nvec = np.concatenate([car_pos_space.nvec, velocity_space.nvec])
+    combined_nvec = np.concatenate(
+        [car_pos_space.nvec, velocity_space.nvec]
+    )  # [max_x, max_y, max_vx, max_vy]
 
     terminated = False
     state, info = env.reset()
+
+    if render:
+        env.render()
 
     while not terminated:
         car_position = state["car_position"]
         velocity = state["velocity"]
 
         combined_state = np.concatenate([car_position, velocity])
+        # Transform multi-dimensional state into 1D index based on all possible states
         state_ridx = np.ravel_multi_index(combined_state, combined_nvec)
 
-        states.append(state_ridx)
+        states_idx.append(state_ridx)
 
-        # Get action from policy
+        # Get action from policy. This returns the value of the array but possible_action contains indices, so we get an idx
         action_idx = np.random.choice(possible_actions, p=policy[state_ridx])
         actions_idx.append(action_idx)
 
-        state, reward, terminated, _, _ = env.step(action_idx)
+        # We need to transform the idx into an action the environment can understand
+        action = np.unravel_index(action_idx, env.action_space.nvec, order="C")
+        # MultiDiscrete samples are > 0 so we need to map the action back to real added velocity
+        action = mapped_action[action[0]], mapped_action[action[1]]
+
+        state, reward, terminated, _, _ = env.step(action)
 
         # print(state, action_idx, reward)
         rewards.append(reward)
 
-    assert len(states) == len(rewards) == len(actions_idx)
-    return states, actions_idx, rewards
+        if render:
+            env.render()
+
+    assert len(states_idx) == len(rewards) == len(actions_idx)
+    return states_idx, actions_idx, rewards
 
 
 def argmax_last(arr):
@@ -70,18 +89,21 @@ def mc_control(num_episodes, gamma=1, epsilon=1):
     # We know act_sp is MultiDiscrete
     num_actions = math.prod(act_sp.nvec)
 
+    print(f"Possible states: {num_states}")
+
     # Optimistic Q values
     Q = np.random.uniform(low=0.99, high=1.01, size=(num_states, num_actions))
     # Q = np.ones(shape=(num_states, num_actions), dtype=np.float64)
 
     C = np.zeros(shape=(Q.shape))
 
-    # We initialize it to take action uniformely at first so it doesn't get stuck in taking the first action
-    pi = np.array([argmax_last(Q[state]) for state in range(num_states)])
+    # Init our greedy policy, taking the argmax of Q means random action at first because ou Q values are sligthly random.
+    pi = np.zeros(shape=(num_states, num_actions), dtype=np.float64)
+    pi[np.arange(num_states), np.argmax(Q, axis=1)] = 1.0
 
     # For debug
-    start_q = Q[[13381, 13356, 13331, 13306, 13281, 13256], :]
     tot_rs = []
+    updates = 0
 
     for episode in range(num_episodes):
         epsilon = 0.2 + (1 - 0.2) * (1 - episode / num_episodes) ** 1
@@ -89,13 +111,16 @@ def mc_control(num_episodes, gamma=1, epsilon=1):
         b = np.ones(shape=(num_states, num_actions), dtype=np.float64) * (
             epsilon / num_actions
         )
-        greedy_actions = pi
+        greedy_actions = np.argmax(pi, axis=1)
         b[np.arange(num_states), greedy_actions] += 1 - epsilon
+
+        # Completely random
+        # b = np.ones(shape=(num_states, num_actions), dtype=np.float64) / (num_actions)
 
         states, actions_idx, rewards = get_episode(env, b)
 
-        tot_r = np.sum(rewards)
-        tot_rs.append(tot_r)
+        steps_nb = len(rewards)
+        tot_rs.append(steps_nb)
 
         G = 0
         W = 1
@@ -111,49 +136,41 @@ def mc_control(num_episodes, gamma=1, epsilon=1):
             q_update = (W / C[state, action]) * (G - Q[state, action])
             Q[state, action] = Q[state, action] + q_update
 
-            # policy_action = np.argmax(Q[state])
-            policy_action = argmax_last(Q[state])
+            if q_update:
+                updates += 1
 
-            pi[state] = policy_action
+            policy_action = np.argmax(Q[state])
+
+            pi[state] = np.zeros(shape=num_actions)
+            pi[state, policy_action] = 1.0
+
             if policy_action != action:
                 break
             W = W * (1 / b[state, action])
 
         if episode % 100 == 0:
-            print(f"Episode {episode}/{num_episodes}")
+            print(f"Episode {episode}/{num_episodes}, epsilon: {epsilon}")
             print(f"Mean steps over 100 ep: {np.mean(tot_rs)}")
+            print(f"Tot updates: {updates}")
             tot_rs = []
-
-            if not np.all(Q[[13381, 13356, 13331, 13306, 13281, 13256], :] == start_q):
-                logger.debug(
-                    f"NEW Start Qs: {Q[[13381,13356,13331,13306,13281,13256],:]}"
-                )
-                logger.debug(f"Pi Start: {pi[[13381,13356,13331,13306,13281,13256]]}")
-        # Debug
-        start_q = Q[[13381, 13356, 13331, 13306, 13281, 13256], :]
 
     return pi
 
 
 if __name__ == "__main__":
-    # pi = mc_control(10_000)
+    pi = mc_control(100_000)
 
-    file_path = os.path.join("Chapter05", "racetrack1.txt")
-    env = gym.make("Racetrack-v0", grid_file_path=file_path, logging=False)
-    obs, _ = env.reset()
-    fo = flatten(env.observation_space, obs)
-    print(fo)
-    a = env.action_space.sample()
-    print(a)
-    print(flatten(env.action_space, a))
+    with open("policy.pkl", "wb") as f:
+        pickle.dump(pi, f)
 
-    # TODO how to work with these flatten/unflatten to keep track of states / Q values (because I need indices)
-    raise "read here"
-    # car_pos_space = env.observation_space["car_position"]
-    # velocity_space = env.observation_space["velocity"]
-
-    # combined_nvec = np.concatenate([car_pos_space.nvec, velocity_space.nvec])
-    # combined_state = np.concatenate([[3, 16], [2, 1]])
-    # state_ridx = np.ravel_multi_index(combined_state, combined_nvec)
-    # print(state_ridx)
-    # 13225 - 13375
+    file_path = os.path.join("Chapter05", "racetrackTest.txt")
+    env = gym.make(
+        "Racetrack-v0",
+        grid_file_path=file_path,
+        noise=False,
+        logging=False,
+    )
+    print("Running episode")
+    states, actions_idx, rewards = get_episode(env, pi, render=True)
+    print("Episode over, plotting")
+    plt.show()

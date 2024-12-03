@@ -8,12 +8,17 @@ from loguru import logger
 
 import skimage.draw
 
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+import matplotlib.patches as mpatches
+
 script_dir = os.path.dirname(os.path.abspath(__file__))
 log_file_path = os.path.join(script_dir, "Racetrack.log")
 logger.add(log_file_path, mode="w")
 
 
 class Racetrack(gym.Env):
+    metadata = {"render_modes": ["human"], "render_fps": 4}
 
     def __init__(
         self,
@@ -53,6 +58,8 @@ class Racetrack(gym.Env):
         self.car_position = None
         self.car_velocity = None
 
+        self.ax = None  # Rendering
+
     def _get_obs(self):
         if self.logging:
             pass
@@ -75,6 +82,8 @@ class Racetrack(gym.Env):
         )
 
         self.car_velocity = np.zeros(shape=(2,), dtype=np.int32)
+
+        self.ax = None
 
         if self.logging:
             logger.debug(f"Reset state: {self.car_position}, {self.car_velocity}")
@@ -171,6 +180,69 @@ class Racetrack(gym.Env):
 
         self.car_position = new_position
         return self._get_obs(), reward, crossing_finish, False, self._get_info()
+
+    def render(self, mode="human", reset=None):
+        # Taken from https://github.com/vojtamolda/reinforcement-learning-an-introduction/blob/main/chapter05/racetrack.py
+        if self.ax is None:
+            fig = plt.figure()
+            self.ax = fig.gca()
+
+            # Racetrack background with custom colormap
+            cmap = mcolors.ListedColormap(["white", "red", "green", "gray"])
+            self.ax.imshow(self.grid, aspect="equal", origin="lower", cmap=cmap)
+
+            # Major tick marks max_speed step apart
+            self.ax.set_xticks(
+                np.arange(0, self.grid.shape[0], self.max_velocity), minor=False
+            )
+            self.ax.set_yticks(
+                np.arange(0, self.grid.shape[1], self.max_velocity), minor=False
+            )
+
+            margin = 1
+            # Thin grid lines at minor tick mark locations
+            self.ax.set_xticks(
+                np.arange(-0.5 - margin, self.grid.shape[0] + margin, 1), minor=True
+            )
+            self.ax.set_yticks(
+                np.arange(-0.5 - margin, self.grid.shape[1] + margin, 1), minor=True
+            )
+            self.ax.grid(which="minor", color="black", linewidth=0.05)
+            self.ax.tick_params(which="minor", length=0)
+            self.ax.set_frame_on(False)
+
+        position = self.car_position
+        speed = self.car_velocity
+
+        if reset is not None:
+            # Reset arrow pointing from the reset position to the current car position
+            reset_position, reset_speed = reset
+            patch = mpatches.FancyArrow(
+                *reset_position,
+                *(position - reset_position),
+                color="blue",
+                fill=False,
+                width=0.10,
+                head_width=0.25,
+                length_includes_head=True,
+            )
+        else:
+            # Speed arrow pointing to the the current car position
+            if (speed == 0).all():
+                patch = mpatches.Circle(position, radius=0.1, color="black", zorder=1)
+            else:
+                patch = mpatches.FancyArrow(
+                    *(position - speed),
+                    *speed,
+                    color="black",
+                    zorder=2,
+                    fill=True,
+                    width=0.05,
+                    head_width=0.25,
+                    length_includes_head=True,
+                )
+        self.ax.add_patch(patch)
+        return self.ax
 
 
 if __name__ == "__main__":
